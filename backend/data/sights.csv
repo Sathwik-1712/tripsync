@@ -1,0 +1,198 @@
+city,name,kind,lat,lon
+Goa,Basilica of Bom Jesus,temple,15.5009,73.9116
+Goa,Se Cathedral,temple,15.5036,73.9122
+Goa,Fort Aguada,fort,15.4920,73.7737
+Goa,Chapora Fort,fort,15.6060,73.7366
+Goa,Reis Magos Fort,fort,15.4974,73.8086
+Goa,Baga Beach,beach,15.5553,73.7517
+Goa,Calangute Beach,beach,15.5439,73.7553
+Goa,Miramar Beach,beach,15.4769,73.8079
+Goa,Goa State Museum,museum,15.4977,73.8280
+Goa,Fontainhas Latin Quarter,attraction,15.4977,73.8343
+Goa,Anjuna Flea Market,marketplace,15.5737,73.7406
+Jaipur,Amber Fort,fort,26.9855,75.8513
+Jaipur,Nahargarh Fort,fort,26.9373,75.8155
+Jaipur,Hawa Mahal,palace,26.9239,75.8267
+Jaipur,City Palace,palace,26.9258,75.8237
+Jaipur,Jantar Mantar,archaeological_site,26.9248,75.8246
+Jaipur,Albert Hall Museum,museum,26.9116,75.8195
+Jaipur,Jal Mahal,viewpoint,26.9534,75.8462
+Jaipur,Birla Mandir,temple,26.8921,75.8155
+Jaipur,Johari Bazaar,marketplace,26.9220,75.8270
+Agra,Taj Mahal,monument,27.1751,78.0421
+Agra,Agra Fort,fort,27.1795,78.0211
+Agra,Mehtab Bagh,garden,27.1801,78.0418
+Agra,Tomb of Itimad-ud-Daulah,monument,27.1925,78.0311
+Agra,Kinari Bazaar,marketplace,27.1840,78.0170
+Delhi,Red Fort,fort,28.6562,77.2410
+Delhi,Qutub Minar,monument,28.5245,77.1855
+Delhi,Humayun's Tomb,monument,28.5933,77.2507
+Delhi,India Gate,memorial,28.6129,77.2295
+Delhi,National Museum,museum,28.6118,77.2195
+Delhi,Lotus Temple,temple,28.5535,77.2588
+Delhi,Lodhi Garden,garden,28.5931,77.2197
+Delhi,Chandni Chowk,marketplace,28.6506,77.2303
+Mumbai,Gateway of India,monument,18.9220,72.8347
+Mumbai,Chhatrapati Shivaji Maharaj Vastu Sangrahalaya,museum,18.9269,72.8326
+Mumbai,Marine Drive,viewpoint,18.9432,72.8236
+Mumbai,Elephanta Caves,archaeological_site,18.9633,72.9315
+Mumbai,Siddhivinayak Temple,temple,19.0169,72.8302
+Mumbai,Sanjay Gandhi National Park,nature_reserve,19.2147,72.9106
+Bengaluru,Bangalore Palace,palace,12.9988,77.5921
+Bengaluru,Lalbagh Botanical Garden,garden,12.9507,77.5848
+Bengaluru,Cubbon Park,park,12.9763,77.5929
+Bengaluru,Tipu Sultan's Summer Palace,palace,12.9593,77.5737
+Bengaluru,Visvesvaraya Industrial and Technological Museum,museum,12.9752,77.5963
+Udaipur,City Palace Udaipur,palace,24.5764,73.6835
+Udaipur,Lake Pichola,viewpoint,24.5720,73.6790
+Udaipur,Jag Mandir,palace,24.5680,73.6810
+Udaipur,Saheliyon-ki-Bari,garden,24.6020,73.6860
+Udaipur,Bagore Ki Haveli,museum,24.5800,73.6830
+Varanasi,Dashashwamedh Ghat,attraction,25.3069,83.0104
+Varanasi,Kashi Vishwanath Temple,temple,25.3109,83.0107
+Varanasi,Sarnath,archaeological_site,25.3811,83.0214
+Varanasi,Ramnagar Fort,fort,25.2681,83.0262
+Varanasi,Assi Ghat,attraction,25.2867,83.0066
+Chennai,Marina Beach,beach,13.0500,80.2824
+Chennai,Kapaleeshwarar Temple,temple,13.0339,80.2696
+Chennai,Fort St. George,fort,13.0796,80.2873
+Chennai,Government Museum Chennai,museum,13.0697,80.2560
+Chennai,San Thome Basilica,temple,13.0334,80.2778
+Chennai,Elliot's Beach,beach,12.9988,80.2717
+Kolkata,Victoria Memorial,museum,22.5448,88.3426
+Kolkata,Howrah Bridge,monument,22.5851,88.3468
+Kolkata,Dakshineswar Kali Temple,temple,22.6548,88.3576
+Kolkata,Indian Museum,museum,22.5579,88.3511
+Kolkata,Eco Park,park,22.6013,88.4655
+Kolkata,New Market,marketplace,22.5600,88.3520
+Hyderabad,Charminar,monument,17.3616,78.4747
+Hyderabad,Golconda Fort,fort,17.3833,78.4011
+Hyderabad,Salar Jung Museum,museum,17.3713,78.4804
+Hyderabad,Chowmahalla Palace,palace,17.3578,78.4717
+Hyderabad,Hussain Sagar,viewpoint,17.4239,78.4738
+Hyderabad,Laad Bazaar,marketplace,17.3610,78.4730
+Kochi,Fort Kochi Beach,beach,9.9658,76.2421
+Kochi,Mattancherry Palace,palace,9.9583,76.2593
+Kochi,Paradesi Synagogue,temple,9.9573,76.2595
+Kochi,St. Francis Church,temple,9.9654,76.2425
+Kochi,Chinese Fishing Nets,attraction,9.9681,76.2422
+Kochi,Kerala Folklore Museum,museum,9.9395,76.3110
+Manali,Hadimba Devi Temple,temple,32.2486,77.1806
+Manali,Solang Valley,viewpoint,32.3165,77.1576
+Manali,Old Manali,marketplace,32.2560,77.1830
+Manali,Vashisht Hot Springs,attraction,32.2633,77.1880
+Manali,Jogini Waterfall,waterfall,32.2770,77.1950
+Manali,Mall Road Manali,marketplace,32.2440,77.1890
+Rishikesh,Laxman Jhula,monument,30.1260,78.3300
+Rishikesh,Triveni Ghat,attraction,30.1030,78.2960
+Rishikesh,The Beatles Ashram,archaeological_site,30.1140,78.3120
+Rishikesh,Parmarth Niketan,temple,30.1160,78.3200
+Rishikesh,Neer Garh Waterfall,waterfall,30.1300,78.3530
+Mysuru,Mysore Palace,palace,12.3052,76.6552
+Mysuru,Chamundi Hill,viewpoint,12.2725,76.6700
+Mysuru,Brindavan Gardens,garden,12.4216,76.5725
+Mysuru,St. Philomena's Church,temple,12.3211,76.6585
+Mysuru,Mysore Zoo,zoo,12.3020,76.6640
+Mysuru,Devaraja Market,marketplace,12.3110,76.6520
+Pune,Shaniwar Wada,fort,18.5195,73.8553
+Pune,Aga Khan Palace,palace,18.5523,73.9015
+Pune,Sinhagad Fort,fort,18.3664,73.7558
+Pune,Raja Dinkar Kelkar Museum,museum,18.5104,73.8574
+Pune,Dagdusheth Halwai Ganapati Temple,temple,18.5164,73.8560
+Amritsar,Golden Temple,temple,31.6200,74.8765
+Amritsar,Jallianwala Bagh,memorial,31.6206,74.8800
+Amritsar,Partition Museum,museum,31.6265,74.8768
+Amritsar,Gobindgarh Fort,fort,31.6327,74.8641
+Amritsar,Wagah Border,attraction,31.6045,74.5725
+Darjeeling,Tiger Hill,viewpoint,26.9920,88.2830
+Darjeeling,Batasia Loop,garden,27.0130,88.2490
+Darjeeling,Padmaja Naidu Himalayan Zoological Park,zoo,27.0580,88.2550
+Darjeeling,Peace Pagoda,temple,27.0300,88.2550
+Darjeeling,Happy Valley Tea Estate,attraction,27.0560,88.2640
+Munnar,Eravikulam National Park,nature_reserve,10.1970,77.0490
+Munnar,Mattupetty Dam,viewpoint,10.1060,77.1240
+Munnar,Tea Museum,museum,10.0920,77.0620
+Munnar,Attukal Waterfalls,waterfall,10.0700,77.0400
+Munnar,Echo Point,viewpoint,10.1140,77.1440
+Pondicherry,Promenade Beach,beach,11.9330,79.8360
+Pondicherry,Auroville,attraction,12.0060,79.8100
+Pondicherry,Sri Aurobindo Ashram,temple,11.9370,79.8350
+Pondicherry,Paradise Beach,beach,11.8840,79.8280
+Pondicherry,Basilica of the Sacred Heart of Jesus,temple,11.9310,79.8290
+Shimla,The Ridge,viewpoint,31.1046,77.1747
+Shimla,Jakhoo Temple,temple,31.1010,77.1840
+Shimla,Viceregal Lodge,palace,31.1040,77.1420
+Shimla,Christ Church Shimla,temple,31.1040,77.1760
+Shimla,Kufri,viewpoint,31.0980,77.2670
+Shimla,Mall Road Shimla,marketplace,31.1040,77.1720
+Ooty,Government Botanical Garden,garden,11.4180,76.7110
+Ooty,Ooty Lake,park,11.4060,76.6950
+Ooty,Doddabetta Peak,viewpoint,11.4020,76.7360
+Ooty,Rose Garden Ooty,garden,11.4030,76.7090
+Ooty,Pykara Waterfalls,waterfall,11.4560,76.6000
+Leh,Leh Palace,palace,34.1650,77.5850
+Leh,Shanti Stupa,temple,34.1730,77.5640
+Leh,Thiksey Monastery,temple,34.0560,77.6670
+Leh,Hall of Fame Museum,museum,34.1350,77.5600
+Leh,Magnetic Hill,viewpoint,34.2490,77.3570
+Jaisalmer,Jaisalmer Fort,fort,26.9126,70.9123
+Jaisalmer,Patwon Ki Haveli,palace,26.9170,70.9140
+Jaisalmer,Gadisar Lake,park,26.9050,70.9200
+Jaisalmer,Sam Sand Dunes,nature_reserve,26.8300,70.5100
+Jaisalmer,Bada Bagh,monument,26.9500,70.8870
+Jodhpur,Mehrangarh Fort,fort,26.2978,73.0185
+Jodhpur,Umaid Bhawan Palace Museum,palace,26.2810,73.0470
+Jodhpur,Jaswant Thada,memorial,26.3040,73.0230
+Jodhpur,Sardar Market,marketplace,26.2930,73.0240
+Jodhpur,Mandore Garden,garden,26.3510,73.0360
+Nainital,Naini Lake,park,29.3920,79.4560
+Nainital,Naina Devi Temple,temple,29.3940,79.4520
+Nainital,Snow View Point,viewpoint,29.3980,79.4580
+Nainital,Tiffin Top,viewpoint,29.3870,79.4430
+Nainital,The Mall Nainital,marketplace,29.3880,79.4570
+Mussoorie,Kempty Falls,waterfall,30.4880,78.0370
+Mussoorie,Gun Hill,viewpoint,30.4600,78.0780
+Mussoorie,Lal Tibba,viewpoint,30.4580,78.0940
+Mussoorie,Mall Road Mussoorie,marketplace,30.4560,78.0790
+Mussoorie,Company Garden,garden,30.4710,78.0570
+Hampi,Virupaksha Temple,temple,15.3350,76.4600
+Hampi,Vittala Temple,archaeological_site,15.3420,76.4740
+Hampi,Lotus Mahal,palace,15.3220,76.4720
+Hampi,Hemakuta Hill,viewpoint,15.3330,76.4590
+Hampi,Elephant Stables,archaeological_site,15.3230,76.4740
+Hampi,Matanga Hill,viewpoint,15.3380,76.4680
+Alleppey,Alappuzha Beach,beach,9.4930,76.3170
+Alleppey,Vembanad Lake,nature_reserve,9.5900,76.3900
+Alleppey,Marari Beach,beach,9.6000,76.2990
+Alleppey,Krishnapuram Palace,palace,9.1530,76.5050
+Alleppey,Pathiramanal Island,nature_reserve,9.6170,76.3900
+Coorg,Abbey Falls,waterfall,12.4580,75.7180
+Coorg,Raja's Seat,viewpoint,12.4200,75.7350
+Coorg,Namdroling Monastery,temple,12.4300,75.9700
+Coorg,Dubare Elephant Camp,nature_reserve,12.3680,75.9020
+Coorg,Madikeri Fort,fort,12.4210,75.7390
+Gangtok,MG Marg,marketplace,27.3300,88.6130
+Gangtok,Rumtek Monastery,temple,27.2880,88.5610
+Gangtok,Tsomgo Lake,viewpoint,27.3750,88.7630
+Gangtok,Namgyal Institute of Tibetology,museum,27.3200,88.6050
+Gangtok,Banjhakri Falls,waterfall,27.3510,88.5910
+Port Blair,Cellular Jail,memorial,11.6750,92.7480
+Port Blair,Corbyn's Cove Beach,beach,11.6420,92.7450
+Port Blair,Ross Island,archaeological_site,11.6750,92.7640
+Port Blair,Samudrika Naval Marine Museum,museum,11.6620,92.7390
+Port Blair,Chidiya Tapu,viewpoint,11.4900,92.7100
+Ahmedabad,Sabarmati Ashram,museum,23.0607,72.5800
+Ahmedabad,Adalaj Stepwell,monument,23.1667,72.5800
+Ahmedabad,Sidi Saiyyed Mosque,temple,23.0270,72.5810
+Ahmedabad,Kankaria Lake,park,23.0060,72.6010
+Ahmedabad,Calico Museum of Textiles,museum,23.0470,72.5970
+Lucknow,Bara Imambara,monument,26.8690,80.9130
+Lucknow,Rumi Darwaza,monument,26.8690,80.9100
+Lucknow,The Residency,archaeological_site,26.8600,80.9260
+Lucknow,Ambedkar Memorial Park,park,26.8520,80.9800
+Lucknow,Hazratganj,marketplace,26.8500,80.9460
+Bhubaneswar,Lingaraj Temple,temple,20.2382,85.8338
+Bhubaneswar,Udayagiri Caves,archaeological_site,20.2630,85.7860
+Bhubaneswar,Odisha State Museum,museum,20.2560,85.8410
+Bhubaneswar,Nandankanan Zoological Park,zoo,20.3960,85.8150
+Bhubaneswar,Mukteswara Temple,temple,20.2430,85.8420

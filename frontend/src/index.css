@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/* Design tokens from design.md, section 11 */
+@theme {
+  --color-paper: #EFEDE2;
+  --color-surface: #F8F7F0;
+  --color-surface-raised: #FFFFFF;
+  --color-ink: #1F2A1C;
+  --color-ink-muted: #545B4A;
+  --color-line: #E3E0D2;
+  --color-lime: #C2CB52;
+  --color-lime-soft: #E6EAC9;
+  --color-sage: #D8E5D6;
+  --color-butter: #F5F1B0;
+  --color-success: #2F5D20;
+  --color-success-bg: #DDE8D6;
+  --color-warning: #8A5A00;
+  --color-warning-bg: #FBEFD3;
+  --color-danger: #9B2C1F;
+  --color-danger-bg: #F8DED8;
+  --color-info: #2D4F6B;
+  --color-info-bg: #DCE8F0;
+
+  --radius-card: 28px;
+  --radius-nested: 20px;
+  --radius-input: 14px;
+
+  --font-sans: "Outfit", system-ui, sans-serif;
+
+  --animate-fade-in: fade-in 250ms ease-out both;
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@layer base {
+  html { background: var(--color-paper); color: var(--color-ink); }
+  body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+  button:not(:disabled), [role="button"] { cursor: pointer; }
+}
+
+@layer components {
+  /* Type scale (design.md, section 3) */
+  .t-display { font-size: 40px; line-height: 44px; font-weight: 600; letter-spacing: -0.01em; }
+  .t-h1 { font-size: 32px; line-height: 38px; font-weight: 600; }
+  .t-h2 { font-size: 24px; line-height: 30px; font-weight: 600; }
+  .t-h3 { font-size: 18px; line-height: 24px; font-weight: 500; }
+  .t-small { font-size: 14px; line-height: 20px; color: var(--color-ink-muted); }
+  .t-label { font-size: 12px; line-height: 16px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--color-ink-muted); }
+  .t-price { font-size: 28px; line-height: 32px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .field { height: 48px; width: 100%; border-radius: var(--radius-input); background: var(--color-surface-raised);
+    border: 1px solid var(--color-line); padding: 0 14px; font-size: 16px; color: var(--color-ink); }
+  .field-label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 500; color: var(--color-ink-muted); }
+
+  .leaflet-container { font-family: var(--font-sans); border-radius: var(--radius-card); }
+}
+
+@media (max-width: 700px) {
+  .t-display { font-size: 32px; line-height: 38px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
