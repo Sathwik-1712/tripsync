@@ -5,7 +5,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel
 
-from .. import llm
+from .. import llm, trace
 from ..state import trip_dates
 from ..tools.stays import TIERS
 from .intake import INTEREST_WORDS, parse_budget
@@ -68,8 +68,11 @@ def refine_node(state: dict) -> dict:
     if action is None:
         a = llm.structured(RefineAction, (
             "Classify this edit request for an existing trip itinerary. Use type 'unknown' if it doesn't match. "
-            f"Valid interests: {', '.join(INTEREST_WORDS)}.\nRequest: {msg}"))
+            f"Valid interests: {', '.join(INTEREST_WORDS)}.\nRequest: {msg}"), purpose="Refine: understand your change")
         action = a.model_dump() if a else {"type": "unknown"}
+        if a:
+            trace.ai("Understand your change", action["type"],
+                     "Only these fixed change types can run; 'unknown' asks you to rephrase", action["type"] != "unknown")
 
     req, cons = dict(state["request"]), state.get("constraints", {})
     act = {**{"indoor_days": [], "day_caps": {}, "max_fee": None}, **(cons.get("activity") or {})}
@@ -118,4 +121,8 @@ def refine_node(state: dict) -> dict:
             "I couldn't map that to a change. Try e.g. 'make day 2 lighter', 'swap day 1 and 3', "
             "'cheaper hotel', 'go by train', 'add museums', 'more indoor', or 'set budget to ₹50,000'."))
         return {**out, "log": [f"[Refine] not understood: {msg}"]}
-    return {**out, "log": [f"[Refine] {t} -> rerun {out['next_agent']}"]}
+    out["constraints"] = {**out.get("constraints", {}), "critic": {}}  # a new plan gets a fresh AI review
+    return {**out, "log": [f"[Refine] {t} -> rerun {out['next_agent']}"],
+            "explain": {"decided": f"Understood as '{t.replace('_', ' ')}': rerun only the {out['next_agent']} step",
+                        "why": "Only the agents your change affects run again; everything else is kept from the "
+                               "saved plan", "inputs": [f"Your message: {msg[:120]}"]}}

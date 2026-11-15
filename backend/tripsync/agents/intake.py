@@ -5,7 +5,7 @@ from datetime import date, timedelta
 
 from langgraph.types import interrupt
 
-from .. import llm
+from .. import llm, trace
 from ..state import FIELD_QUESTIONS, TripDraft, missing_fields, validation_errors
 from ..tools.currency import to_inr
 from ..tools.geo import find_cities, geocode, resolve_city
@@ -214,7 +214,8 @@ def parse_bare_answer(text: str, field: str, today: date) -> dict:
 def _llm_extract(text: str, today: date) -> dict:
     draft = llm.structured(TripDraft, (
         f"Today is {today.isoformat()}. Extract trip details from the user's message for a trip within India. "
-        "Use null for anything not stated; never guess. Dates as YYYY-MM-DD.\n\nMessage: " + text))
+        "Use null for anything not stated; never guess. Dates as YYYY-MM-DD.\n\nMessage: " + text),
+        purpose="Intake: read the trip request")
     return {k: v for k, v in (draft.model_dump() if draft else {}).items() if v not in (None, [], "")}
 
 
@@ -255,10 +256,19 @@ def extract(text: str, today: date, missing: list[str] | None = None) -> dict:
         found.update(parse_bare_answer(text, missing[0], today))
     gaps = [f for f in (missing or ["origin", "destination", "start_date", "travellers", "budget_inr"])
             if not found.get({"budget_inr": "budget_amount"}.get(f, f))]
-    if gaps:
-        for k, v in _llm_extract(text, today).items():
-            found.setdefault(k, v)
+    if gaps:  # the pattern-based reader missed something: ask the AI, but what the rules found wins
+        ai_found = _llm_extract(text, today)
+        used = {k: v for k, v in ai_found.items() if k not in found}
+        found.update(used)
+        if ai_found:
+            trace.ai("Read your trip request", ", ".join(f"{k}: {v}" for k, v in ai_found.items()),
+                     (f"Used {', '.join(used)}" if used else "Nothing new") + "; anything the rule-based reader "
+                     "already found was kept, and dates, cities and numbers are validated next", bool(used))
     return found
+
+
+LABEL = {"origin": "from {}", "destination": "to {}", "start_date": "leaving {}", "end_date": "back {}",
+         "travellers": "{} travellers", "budget_inr": "budget ₹{:,}"}
 
 
 def intake_node(state: dict) -> dict:
@@ -266,7 +276,11 @@ def intake_node(state: dict) -> dict:
     req = merge_into_request({}, extract(state.get("user_message", ""), today))
     got = [k for k in ("origin", "destination", "start_date", "end_date", "travellers", "budget_inr") if req.get(k)]
     return {"request": req, "revision_count": 0, "constraints": {}, "final": None, "replans": [],
-            "log": [f"[Intake] understood: {', '.join(got) or 'nothing yet'}"]}
+            "log": [f"[Intake] understood: {', '.join(got) or 'nothing yet'}"],
+            "explain": {"decided": "Understood: " + (", ".join(LABEL[k].format(req[k]) for k in got) or "nothing yet"),
+                        "why": "Patterns for cities, dates, numbers and money read the message first; the AI is "
+                               "asked only for what they missed",
+                        "inputs": [f"Your message: {state.get('user_message', '')[:160]}"]}}
 
 
 def _place_errors(req: dict) -> list[str]:
@@ -284,7 +298,8 @@ def clarify_node(state: dict) -> dict:
             req.pop(f)
     missing, errors = missing_fields(req), validation_errors(req) + place_errs
     if not missing and not errors:
-        return {}
+        return {"explain": {"decided": "Nothing missing: on to the Budget agent",
+                            "why": "Origin, destination, dates, travellers, budget and priority are all known and valid"}}
     question = " ".join(errors + [FIELD_QUESTIONS[f] for f in missing])
     answer = interrupt({"type": "clarify", "question": question, "missing": missing, "errors": errors})
     if errors:  # let the answer overwrite bad values

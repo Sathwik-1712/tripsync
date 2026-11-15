@@ -42,6 +42,37 @@ def test_routes_are_fetched_once_then_read_from_the_database(monkeypatch):
     assert len(calls) == 1 and first == second and second[1][0][1] == 5.0 and second[0][1][0] == 11.0
 
 
+def test_unroutable_pairs_are_estimated_not_zero(monkeypatch):
+    def fake(url, params=None, **kw):  # no road between the two points: OSRM answers null
+        rows, cols = (list(map(int, params[k].split(";"))) for k in ("sources", "destinations"))
+        grid = [[0 if i == j else None for j in cols] for i in rows]
+        return {"code": "Ok", "durations": grid, "distances": grid}
+    monkeypatch.setattr(geo, "get_json", fake)
+    pts = [(15.5, 73.8), (15.3, 74.1)]
+    minutes, km, source = geo.travel_table(pts)
+    assert source == "estimate" and km[0][1] > 30 and minutes[0][1] > 0
+    assert db.get_routes([(pts[0], pts[1])]) == {}  # nothing wrong was saved
+    rows, source = geo.travel_from(pts[0], [pts[1]])
+    assert source == "estimate" and rows[0][0] > 30
+
+
+def test_only_missing_routes_are_fetched(monkeypatch):
+    pts = [(26.9, 75.8), (26.95, 75.85), (26.92, 75.81), (26.97, 75.83), (26.91, 75.86)]
+    db.save_routes([(a, b, 1.0, 5.0, "OSRM") for a in pts[:4] for b in pts[:4] if a != b])
+    calls = []
+
+    def fake(url, params=None, **kw):
+        calls.append(params)
+        rows, cols = (list(map(int, params[k].split(";"))) for k in ("sources", "destinations"))
+        return {"code": "Ok", "durations": [[0 if i == j else 600 for j in cols] for i in rows],
+                "distances": [[0 if i == j else 3000 for j in cols] for i in rows]}
+    monkeypatch.setattr(geo, "get_json", fake)
+    minutes, km, source = geo.travel_table(pts)
+    assert source == "OSRM" and len(calls) == 2
+    assert {c["sources"] for c in calls} == {"4", "0;1;2;3;4"}  # just the new point's row and column
+    assert km[0][1] == 1.0 and km[4][0] == 3.0 and km[0][4] == 3.0
+
+
 def test_real_hotel_prices_replace_the_static_table():
     opts = [{"id": f"h{i}", "name": f"Hotel {i}", "tier": "mid", "nightly": 2000 + i * 100, "nights": 2, "rooms": 1,
              "source": "LiteAPI", "estimate": False} for i in range(5)]

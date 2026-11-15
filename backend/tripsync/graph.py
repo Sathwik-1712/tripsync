@@ -21,24 +21,25 @@ from .agents.review import review_node
 from .agents.transport import transport_node
 from .config import CHECKPOINT_DB
 from .state import TripState
+from .trace import traced
 
 AGENTS = ["transport", "accommodation", "activity"]
 
 
 def build_graph(checkpointer=None):
     g = StateGraph(TripState)
-    g.add_node("intake", intake_node)
-    g.add_node("clarify", clarify_node)
-    g.add_node("budget", budget_node)
-    g.add_node("transport", transport_node)
-    g.add_node("accommodation", accommodation_node)
-    g.add_node("activity", activity_node)
-    g.add_node("review", review_node)
-    g.add_node("planner", planner_node)
-    g.add_node("critic", critic_node)
-    g.add_node("ask_user", ask_user_node)
-    g.add_node("finalize", finalize_node)
-    g.add_node("refine", refine_node)
+    g.add_node("intake", traced("intake", intake_node))
+    g.add_node("clarify", traced("clarify", clarify_node))
+    g.add_node("budget", traced("budget", budget_node))
+    g.add_node("transport", traced("transport", transport_node))
+    g.add_node("accommodation", traced("accommodation", accommodation_node))
+    g.add_node("activity", traced("activity", activity_node))
+    g.add_node("review", traced("review", review_node))
+    g.add_node("planner", traced("planner", planner_node))
+    g.add_node("critic", traced("critic", critic_node))
+    g.add_node("ask_user", traced("ask_user", ask_user_node))
+    g.add_node("finalize", traced("finalize", finalize_node))
+    g.add_node("refine", traced("refine", refine_node))
 
     g.add_conditional_edges(START, lambda s: "refine" if s.get("final") else "intake", ["intake", "refine"])
     g.add_edge("intake", "clarify")

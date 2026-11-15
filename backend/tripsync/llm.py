@@ -6,6 +6,7 @@ from functools import lru_cache
 
 import requests
 
+from . import trace
 from .config import offline
 
 log = logging.getLogger(__name__)
@@ -43,20 +44,24 @@ def provider_names() -> list[str]:
     return [name for name, _ in chat_models()]
 
 
-def structured(schema, prompt: str):
-    """Return a `schema` instance from the first provider that answers, else None."""
+def structured(schema, prompt: str, purpose: str = "AI answer"):
+    """Return a `schema` instance from the first provider that answers, else None. Each try is traced."""
     for name, model in chat_models():
         try:
-            return model.with_structured_output(schema).invoke(prompt)
+            # Groq's gpt-oss models reject forced tool calls but do support a strict JSON schema.
+            kw = {"method": "json_schema"} if name == "Groq" else {}
+            with trace.call(name, purpose, kind="ai"):
+                return model.with_structured_output(schema, **kw).invoke(prompt)
         except Exception as e:  # noqa: BLE001 - rate limits, bad JSON, network
             log.warning("%s structured output failed: %s", name, e)
     return None
 
 
-def text(prompt: str) -> str | None:
+def text(prompt: str, purpose: str = "AI text") -> str | None:
     for name, model in chat_models():
         try:
-            msg = model.invoke(prompt)
+            with trace.call(name, purpose, kind="ai"):
+                msg = model.invoke(prompt)
             # Gemini returns a list of content parts; `.text` flattens any provider's reply to a string.
             return msg.text if isinstance(msg.text, str) else msg.text()
         except Exception as e:  # noqa: BLE001

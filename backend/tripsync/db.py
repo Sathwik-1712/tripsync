@@ -85,6 +85,13 @@ def _write(sql: str, rows: list[tuple]) -> None:
         db.executemany(sql, rows)
 
 
+def _read(sql: str, params: tuple = ()) -> list[sqlite3.Row]:
+    """Reads take the lock too: the agents share one connection across threads."""
+    db = connect()
+    with _lock:
+        return db.execute(sql, params).fetchall()
+
+
 def _today() -> str:
     return date.today().isoformat()
 
@@ -110,8 +117,8 @@ def save_places(city: str, places: list[dict], role: str = "sight") -> None:
 
 def places_for(city: str, role: str = "sight", max_age_days: int = 180, source_like: str = "%") -> list[dict]:
     since = (date.today() - timedelta(days=max_age_days)).isoformat()
-    rows = connect().execute("SELECT * FROM places WHERE city=? AND role=? AND last_seen>=? AND source LIKE ?",
-                             (city, role, since, source_like)).fetchall()
+    rows = _read("SELECT * FROM places WHERE city=? AND role=? AND last_seen>=? AND source LIKE ?",
+                 (city, role, since, source_like))
     return [dict(r) for r in rows]
 
 
@@ -119,19 +126,29 @@ def record_picks(thread_id: str, marks: dict) -> None:
     """Remember what this trip's traveller picked; counts feed the ranking of places for later trips."""
     db = connect()
     with _lock:
-        old = dict(db.execute("SELECT place_id, mark FROM trip_picks WHERE thread_id=?", (thread_id,)).fetchall())
-        for pid, mark in old.items():  # a re-edited selection replaces the previous one
-            if mark in ("must", "add", "skip"):
-                db.execute(f"UPDATE places SET {mark}_count = MAX(0, {mark}_count - 1) WHERE id=?", (pid,))
-        db.execute("DELETE FROM trip_picks WHERE thread_id=?", (thread_id,))
-        for pid, mark in marks.items():
-            db.execute("INSERT INTO trip_picks VALUES (?,?,?)", (thread_id, pid, mark))
-            if mark in ("must", "add", "skip"):
-                db.execute(f"UPDATE places SET {mark}_count = {mark}_count + 1 WHERE id=?", (pid,))
+        db.execute("BEGIN")  # all or nothing, so counts never drift from trip_picks
+        try:
+            _replace_picks(db, thread_id, marks)
+        except Exception:
+            db.execute("ROLLBACK")
+            raise
+        db.execute("COMMIT")
+
+
+def _replace_picks(db: sqlite3.Connection, thread_id: str, marks: dict) -> None:
+    old = dict(db.execute("SELECT place_id, mark FROM trip_picks WHERE thread_id=?", (thread_id,)).fetchall())
+    for pid, mark in old.items():  # a re-edited selection replaces the previous one
+        if mark in ("must", "add", "skip"):
+            db.execute(f"UPDATE places SET {mark}_count = MAX(0, {mark}_count - 1) WHERE id=?", (pid,))
+    db.execute("DELETE FROM trip_picks WHERE thread_id=?", (thread_id,))
+    for pid, mark in marks.items():
+        db.execute("INSERT INTO trip_picks VALUES (?,?,?)", (thread_id, pid, mark))
+        if mark in ("must", "add", "skip"):
+            db.execute(f"UPDATE places SET {mark}_count = {mark}_count + 1 WHERE id=?", (pid,))
 
 
 def pick_counts(city: str) -> dict:
-    rows = connect().execute("SELECT id, must_count, add_count, skip_count FROM places WHERE city=?", (city,))
+    rows = _read("SELECT id, must_count, add_count, skip_count FROM places WHERE city=?", (city,))
     return {r["id"]: (r["must_count"], r["add_count"], r["skip_count"]) for r in rows}
 
 
@@ -155,8 +172,8 @@ def save_hotels(city: str, check_in: date, options: list[dict]) -> None:
 def hotel_price_stats(city: str, tier: str, days: int = 60) -> dict | None:
     """Median nightly room price seen for this city and tier recently, if there are enough prices."""
     since = (date.today() - timedelta(days=days)).isoformat()
-    rows = connect().execute("SELECT nightly, seen_on FROM hotel_prices WHERE city=? AND tier=? AND seen_on>=?",
-                             (city, tier, since)).fetchall()
+    rows = _read("SELECT nightly, seen_on FROM hotel_prices WHERE city=? AND tier=? AND seen_on>=?",
+                 (city, tier, since))
     if len(rows) < 5:
         return None
     return {"median": int(statistics.median(r["nightly"] for r in rows)), "n": len(rows),
@@ -176,8 +193,8 @@ def save_fares(origin: str, dest: str, travel_date: date, options: list[dict]) -
 def fare_stats(origin: str, dest: str, mode: str, travel_date: date) -> dict | None:
     """Median one-way fare per person seen for this route and mode, for travel in the same month."""
     month = travel_date.strftime("%Y-%m")
-    rows = connect().execute("SELECT price_pp FROM fares WHERE origin=? AND destination=? AND mode=? "
-                             "AND substr(travel_date,1,7)=?", (origin, dest, mode, month)).fetchall()
+    rows = _read("SELECT price_pp FROM fares WHERE origin=? AND destination=? AND mode=? "
+                 "AND substr(travel_date,1,7)=?", (origin, dest, mode, month))
     if len(rows) < 5:
         return None
     return {"median": int(statistics.median(r["price_pp"] for r in rows)), "n": len(rows)}
@@ -194,13 +211,11 @@ def get_routes(pairs: list[tuple[tuple, tuple]], max_age_days: int = 90) -> dict
     if not pairs:
         return {}
     since = (date.today() - timedelta(days=max_age_days)).isoformat()
-    db, out = connect(), {}
-    for a, b in pairs:
-        r = db.execute("SELECT km, minutes, source FROM routes WHERE a_lat=? AND a_lon=? AND b_lat=? AND b_lon=? "
-                       "AND seen_on>=?", (*_key(a), *_key(b), since)).fetchone()
-        if r:
-            out[(a, b)] = (r["km"], r["minutes"], r["source"])
-    return out
+    starts = sorted({_key(a)[0] for a, _ in pairs})  # one query for every pair, matched up below
+    rows = _read(f"SELECT * FROM routes WHERE seen_on>=? AND a_lat IN ({','.join('?' * len(starts))})",
+                 (since, *starts))
+    saved = {(r["a_lat"], r["a_lon"], r["b_lat"], r["b_lon"]): (r["km"], r["minutes"], r["source"]) for r in rows}
+    return {(a, b): saved[(*_key(a), *_key(b))] for a, b in pairs if (*_key(a), *_key(b)) in saved}
 
 
 def save_routes(rows: list[tuple[tuple, tuple, float, float, str]]) -> None:
@@ -221,6 +236,5 @@ def save_trip(thread_id: str, state: dict) -> None:
 
 
 def stats() -> dict:
-    db = connect()
-    return {t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+    return {t: _read(f"SELECT COUNT(*) FROM {t}")[0][0]
             for t in ("places", "hotels", "hotel_prices", "fares", "routes", "trips", "trip_picks")}

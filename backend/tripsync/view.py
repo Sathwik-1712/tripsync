@@ -71,7 +71,8 @@ def _place(p: dict) -> dict:
     return {"id": p["id"], "name": p["name"], "kind": p["kind"], "group": place_group(p), "lat": p["lat"],
             "lon": p["lon"], "description": p.get("description"), "minutes": p["minutes"], "fee": p["fee"],
             "fee_known": bool(p.get("fee_known")), "hours": hours, "indoor": p["indoor"], "source": p["source"],
-            "score": round(p["score"], 1), "picks": p.get("picks")}
+            "score": round(p["score"], 1), "picks": p.get("picks"), "ai_reason": p.get("ai_reason"),
+            "ai_rank": p.get("ai_rank")}
 
 
 def _food(f: dict) -> dict:
@@ -162,7 +163,7 @@ def _codes(req: dict) -> dict:
 
 
 def build_view(values: dict, question: dict | None) -> dict:
-    base = {"statuses": statuses(values, question), "notice": None}
+    base = {"statuses": statuses(values, question), "notice": None, "trace": values.get("trace", [])}
     if question and question.get("type") == "select":
         return {**base, "status": "select", "question": question, "selection": selection_view(values)}
     if question:
@@ -194,6 +195,7 @@ def build_view(values: dict, question: dict | None) -> dict:
         "changes": values.get("changes", []),
         "original": values.get("original"),
         "warnings": values["final"]["warnings"],
+        "tips": values["final"].get("tips", []),
         "log": values.get("log", []),
     }
 

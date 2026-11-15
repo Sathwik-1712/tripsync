@@ -5,7 +5,7 @@ from datetime import date
 
 from langgraph.types import interrupt
 
-from .. import llm
+from . import ai
 from ..config import MAX_ROUNDS
 from ..state import trip_dates
 from ..tools.hours import visit_problem
@@ -70,6 +70,8 @@ def describe(v: dict) -> str:
         return f"Total is ₹{v['deficit']:,} over budget"
     if t == "rain_outdoor":
         return f"Rain expected on {', '.join(v['dates'])} with outdoor stops planned"
+    if t == "overpacked_day" and v.get("source") == "ai":
+        return f"AI reviewer: day {v['day']} is too much for your pace ({v['reason']})"
     if t == "overpacked_day":
         return f"Day {v['day']} is overpacked ({v['count']} stops, {v['travel_min']} min travelling)"
     if t == "closed_place":
@@ -80,17 +82,25 @@ def describe(v: dict) -> str:
 
 def critic_node(state: dict) -> dict:
     vs = check(state)
+    knobs = dict(state.get("constraints", {}).get("critic") or {})
+    rounds_so_far = state.get("revision_count", 0)
     if not vs:
-        out = {"violations": [], "last_violation": None, "next_agent": "finalize",
-               "log": ["[Critic] pass: within every limit, no rain conflicts, days are manageable"]}
-        review = llm.text(
-            "You are reviewing a travel itinerary that already passed budget and weather checks. In at most two "
-            "sentences, point out one practical concern (crowds, pacing, heat). Do not suggest new places.\n"
-            + "\n".join(f"Day {d['day']} ({d['date']}): " + ", ".join(s['name'] for s in d['stops'])
-                        for d in state["itinerary"]["days"]))
-        if review:
-            out["log"].append(f"[Critic] LLM review: {review.strip()[:400]}")
-        return out
+        # The rules found nothing. Ask the AI for a second opinion, once per plan: it may send one day back to be
+        # lightened (only a real day with more than one stop) or leave tips for the traveller.
+        fix, tips = (None, knobs.get("tips", [])) if knobs.get("ai_reviewed") else ai.review_plan(state)
+        knobs.update(ai_reviewed=True, tips=tips)
+        if fix and rounds_so_far + 1 < MAX_ROUNDS:
+            vs = [fix]
+        else:
+            return {"violations": [], "last_violation": None, "next_agent": "finalize", "constraints": {"critic": knobs},
+                    "log": ["[Critic] pass: within every limit, no rain conflicts, days are manageable"]
+                    + [f"[Critic] AI tip: {t}" for t in tips],
+                    "explain": {"decided": "Passed: the plan goes to the final step",
+                                "why": "Every rule check passed: each category within its limit, the total within "
+                                       "budget, no outdoor stops on rainy days, every place open when visited, no day "
+                                       "too long, and every place comes from a real source"
+                                       + (". The AI reviewer added tips for you" if tips else ""),
+                                "inputs": _inputs(state)}}
 
     fits = state["costs"]["total"] <= state["costs"]["budget"]
 
@@ -109,9 +119,16 @@ def critic_node(state: dict) -> dict:
     others = sum(v.get("deficit", 0) for v in fixable if not v.get("preferred") and v["type"] in COST_TYPES)
     if over > 0 and others < over:
         fixable.sort(key=lambda v: (v["type"] not in COST_TYPES, -v.get("deficit", 0)))
-    primary, rounds = (fixable or vs)[0], state.get("revision_count", 0) + 1
+    ordered = fixable or vs
+    # The AI may pick which problem to fix first, but only among the ones the rules would also accept as first:
+    # not a choice the traveller asked for, and costs first when only the big overspends can close the gap.
+    first_tier = [v for v in ordered if not v.get("preferred")] or ordered
+    if over > 0 and others < over:
+        first_tier = [v for v in first_tier if v["type"] in COST_TYPES] or first_tier
+    pick = ai.choose_first([(v, describe(v), route(v)) for v in first_tier]) if len(first_tier) > 1 else None
+    primary, rounds = (first_tier[pick] if pick is not None else ordered[0]), rounds_so_far + 1
     target = route(primary)
-    out = {"violations": vs, "last_violation": primary, "revision_count": rounds,
+    out = {"violations": vs, "last_violation": primary, "revision_count": rounds, "constraints": {"critic": knobs},
            "log": [f"[Critic] round {rounds}: {describe(primary)} -> {target}"
                    + (f" (+{len(vs) - 1} more)" if len(vs) > 1 else "")]}
     if rounds >= MAX_ROUNDS:
@@ -123,13 +140,43 @@ def critic_node(state: dict) -> dict:
         else:
             target = "ask_user" if cost_issue and not fits else "finalize"
         out["log"].append(f"[Critic] {MAX_ROUNDS} failed rounds -> {target}")
+    elif target == "budget" and fits and len(vs) > 1 and all(route(v) == "budget" for v in vs):
+        # Several categories a little over their own limits while the whole trip fits: re-split the money around
+        # the actual plan in one go, instead of one category per round (each round reruns every search agent).
+        out["budget_action"] = {"type": "rebalance"}
+        out["log"].append(f"[Critic] {len(vs)} categories over their limits but the trip fits: rebalance at once")
     elif target == "budget":
         out["budget_action"] = ({"type": "realloc", "category": primary["category"], "deficit": primary["deficit"]}
                                 if primary.get("category") else {"type": "split"})
     out["next_agent"] = target
     out["replans"] = state.get("replans", []) + [{"problem": describe(primary), "type": primary["type"],
                                                   "target": target}]
+    out["explain"] = {"decided": f"Round {rounds}: sent back to the {target.replace('_', ' ')} step",
+                      "why": _why_route(primary, target, state), "sent_to": target,
+                      "inputs": _inputs(state) + [f"Problems found: {len(vs)}"] + [describe(v) for v in vs]}
+    if (out.get("budget_action") or {}).get("type") == "rebalance" and rounds < MAX_ROUNDS:
+        out["explain"]["why"] = (f"{len(vs)} categories are a little over their own limits, but the whole trip is "
+                                 f"₹{-over:,} under budget. So the Budget agent re-splits the money around the actual "
+                                 "plan in one go, instead of fixing one category per round")
     return out
+
+
+def _inputs(state: dict) -> list[str]:
+    c = state["costs"]
+    return [f"Total ₹{c['total']:,} of ₹{c['budget']:,}", f"{len(state['itinerary']['days'])} days",
+            f"{sum(len(d['stops']) for d in state['itinerary']['days'])} stops"]
+
+
+def _why_route(v: dict, target: str, state: dict) -> str:
+    problem = describe(v)
+    if v.get("source") == "ai":
+        return f"The AI reviewer found day {v['day']} too much ({v['reason']}), so the Activity agent caps that day"
+    if target == "budget":
+        return (f"{problem}. That agent is already at its cheapest option or the whole trip still fits, so the Budget "
+                "agent moves money between categories instead of downgrading")
+    if target in ("ask_user", "finalize"):
+        return f"{problem}. {MAX_ROUNDS} rounds didn't fix it, so it stops here"
+    return f"{problem}. The {target} agent is the one that can fix this, so only it reruns"
 
 
 def ask_user_node(state: dict) -> dict:

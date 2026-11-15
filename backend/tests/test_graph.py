@@ -186,11 +186,18 @@ def test_picked_stay_used_and_downgrade_is_explained():
         g.invoke(Command(resume="accept"), cfg)
         v = g.get_state(cfg).values
     assert v["original"]["stay"].startswith(dearest["name"])
-    if v["stay"]["choice"]["id"] != dearest["id"]:  # replaced: there must be a reason on record
-        stay_changes = [c for c in v["changes"] if c["area"] == "stay"]
-        assert stay_changes and "over budget" in stay_changes[0]["reason"]
-    else:
-        assert not [c for c in v["changes"] if c["area"] == "stay"]  # never claims a change that didn't happen
+    # The traveller switched to it on purpose, so budget fixes keep it (locked) and never claim a stay change.
+    assert v["stay"]["choice"]["id"] == dearest["id"] and v["constraints"]["stay"]["locked"]
+    assert not [c for c in v["changes"] if c["area"] == "stay"]
+
+
+def test_empty_selection_is_not_replaced_by_suggestions():
+    g = build_graph()
+    cfg = {"configurable": {"thread_id": "none"}}
+    g.invoke({"user_message": f"3 days from Delhi to Jaipur on {START}, 2 people, ₹60000, balanced"}, cfg)
+    g.invoke(Command(resume={"accept": True, "places": {}}), cfg)
+    v = g.get_state(cfg).values
+    assert v["selection"]["places"] == {} and not [s for d in v["itinerary"]["days"] for s in d["stops"]]
 
 
 def test_refine_use_stay_locks_the_pick():
@@ -222,3 +229,19 @@ def test_hotel_change_explains_what_moved():
     stay = [c for c in v["changes"] if c["area"] == "stay"]
     assert stay and stay[0]["after"] == other["name"] and "recalculated" in stay[0]["reason"]
     assert v.get("baseline") is None  # used once, then cleared
+
+
+def test_small_overspends_on_a_plan_that_fits_are_rebalanced_in_one_round():
+    from tripsync.agents.critic import critic_node
+    stop = {"id": "x", "name": "Fort", "indoor": False, "fee": 0, "minutes": 60}
+    state = {  # three categories a little over their own limits, but ₹9,700 under budget overall
+        "costs": {"transport": 5600, "stay": 6363, "activities": 6990, "food": 10400, "total": 30300, "budget": 40000},
+        "allocations": {"transport": 5300, "stay": 15300, "activities": 5100, "food": 9400, "buffer": 4000},
+        "constraints": {}, "transport": {"at_cheapest": False, "choice": {"mode": "bus"}},
+        "stay": {"at_cheapest": False}, "activities": {"candidates": [stop]},
+        "itinerary": {"days": [{"day": 1, "date": "2026-12-01", "rainy": False, "stops": [stop],
+                                "visit_min": 60, "travel_min": 20}]},
+    }
+    out = critic_node(state)
+    assert out["next_agent"] == "budget" and out["budget_action"] == {"type": "rebalance"}
+    assert "in one go" in out["explain"]["why"]

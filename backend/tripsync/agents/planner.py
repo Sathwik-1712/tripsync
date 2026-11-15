@@ -294,10 +294,12 @@ def group_days(home: tuple, cands: list[dict], windows: list[int], caps: list[in
 SELECT_BOOST = {"must": 50, "add": 0, "optional": -20}  # must-visit places are scheduled first, optional last
 
 
-def selected_candidates(cands: list[dict], marks: dict) -> list[dict]:
-    """The places the traveller kept, ranked by their marks. With no marks at all, every place is fair game."""
+def selected_candidates(cands: list[dict], marks: dict, confirmed: bool = False) -> list[dict]:
+    """The places the traveller kept, ranked by their marks. Before any selection is confirmed, every place is
+    fair game; once it is, only the kept ones (none, if the traveller kept none)."""
     chosen = {k for k, v in marks.items() if v in SELECT_BOOST}
-    keep = [c for c in cands if marks.get(c["id"]) != "skip" and (not chosen or c["id"] in chosen)]
+    only_chosen = confirmed or bool(chosen)
+    keep = [c for c in cands if marks.get(c["id"]) != "skip" and (not only_chosen or c["id"] in chosen)]
     ranked = [{**c, "mark": marks.get(c["id"]), "score": c["score"] + SELECT_BOOST.get(marks.get(c["id"]), 0)}
               for c in keep]
     return sorted(ranked, key=lambda c: -c["score"])
@@ -316,8 +318,9 @@ def planner_node(state: dict) -> dict:
         changes += [change("schedule", f"{p['name']} on day {p['day']}", "Moved to another day if one fits",
                            f"It isn't open at the planned time ({p['why']})") for p in v["places"]]
     avoid_set = {(d, pid) for d, pid in avoid}
-    marks = (state.get("selection") or {}).get("places") or {}
-    cands = selected_candidates(state["activities"]["candidates"], marks)
+    sel = state.get("selection") or {}
+    marks = sel.get("places") or {}
+    cands = selected_candidates(state["activities"]["candidates"], marks, bool(sel.get("confirmed")))
     food_spots = state["activities"].get("food_spots") or []
     stay, dest = state["stay"]["choice"], state["destination"]
     home = (stay["lat"], stay["lon"]) if stay.get("lat") else (dest["lat"], dest["lon"])
@@ -416,4 +419,8 @@ def planner_node(state: dict) -> dict:
             "changes": changes,
             "log": [f"[Planner] {len(days)} days, {n_stops} stops; arrive {a['time']}"
                     f"{' (assumed)' if a['assumed'] else ''}, ready by {a['ready']}; travel times via {routing}; "
-                    f"total ₹{costs['total']:,} of ₹{costs['budget']:,}"]}
+                    f"total ₹{costs['total']:,} of ₹{costs['budget']:,}"],
+            "explain": {"why": "Places were grouped into days by area around the hotel (far ones get a day of their "
+                               "own), ordered to cut back-tracking, and fitted around opening hours and meals",
+                        "inputs": [f"{len(cands)} places you kept", f"Hotel: {stay['name']}",
+                                   f"Arrive {a['time']}", f"Road times from {routing}"]}}

@@ -35,6 +35,7 @@ export interface Day {
   stops: Stop[]; timeline: TimelineItem[]; travel_min: number; visit_min: number; weather: Weather | null;
   return_leg: RouteLeg | null;
   arrival?: Arrival; departure?: Departure;
+  why?: string | null;  // AI's one line on why these stops are together
 }
 export interface FlightLeg {
   from: string; to: string; from_name: string | null; to_name: string | null; depart: string | null;
@@ -61,6 +62,7 @@ export interface Place {
   minutes: number; fee: number; fee_known: boolean; hours: string | null; indoor: boolean; source: string;
   price?: string | null; meal?: boolean; score: number;
   picks: { must: number; add: number; skip: number } | null;
+  ai_reason?: string | null; ai_rank?: number | null;  // the AI's suggestion, if it picked this place
 }
 export interface NearbyPlace { km: number; minutes: number; mode: RouteLeg["mode"]; fare: number; maps_url: string; far: boolean }
 export interface Nearby {
@@ -93,7 +95,18 @@ export interface Question {
   missing?: string[]; defaults?: Record<string, Mark>;
 }
 
-interface Base { statuses: Statuses; notice: string | null }
+// One agent step from the "Under the hood" trace (backend/tripsync/trace.py).
+export interface TraceCall {
+  service: string; what: string; ok: boolean; ms: number; cached: boolean;
+  kind: "api" | "ai" | "db" | "estimate"; error?: string;
+}
+export interface TraceAI { purpose: string; suggested: string; verdict: string; accepted: boolean }
+export interface TraceStep {
+  agent: string; at: string; ms: number; decided: string; why: string | null; inputs: string[];
+  sent_to: string | null; calls: TraceCall[]; ai: TraceAI[];
+}
+
+interface Base { statuses: Statuses; notice: string | null; trace?: TraceStep[] }
 export type View =
   | (Base & { status: "empty" })
   | (Base & { status: "question"; question: Question })
@@ -121,11 +134,12 @@ export type View =
       changes: Change[];
       original: Original | null;
       warnings: string[];
+      tips: string[];
       log: string[];
     });
 export type PlanView = Extract<View, { status: "plan" }>;
 
-export interface Progress { statuses: Statuses; notes: string[]; title: string }
+export interface Progress { statuses: Statuses; notes: string[]; title: string; trace?: TraceStep[] }
 export interface Meta { cities: string[]; interests: string[]; llm: string[] }
 
 async function json<T>(res: Response): Promise<T> {

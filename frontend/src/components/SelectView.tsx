@@ -3,9 +3,11 @@
 // refresh when the hotel changes. Nothing is planned until "Generate".
 import { useEffect, useMemo, useState } from "react";
 import { Clock, MapPin, Navigation, Sparkles, Ticket as TicketIcon, TriangleAlert } from "lucide-react";
-import { getNearby, type Mark, type Nearby, type NearbyPlace, type Place, type Question, type Selection, type SelectionAnswer } from "../api";
+import { getNearby, type Mark, type Nearby, type NearbyPlace, type Place, type Question, type Selection, type SelectionAnswer,
+  type TraceStep } from "../api";
 import { fmtDay, hm, inr, kindLabel, mapsSearch, plural } from "../format";
 import { StayOptions, TransportOptions } from "./Options";
+import { HoodCard } from "./UnderTheHood";
 import { Button, Card, Chip, Notice, PillGroup, Status, Tag } from "./ui";
 
 const MARKS: { key: Mark; label: string }[] = [
@@ -71,6 +73,12 @@ function PlaceCard({ p, mark, near, from, onMark, warning }: {
         </div>
       </div>
       <p className="text-sm">{p.description ?? <span className="text-ink-muted">No description available from {p.source}.</span>}</p>
+      {p.ai_reason && (
+        <p className="rounded-input bg-lime-soft/60 px-3 py-1.5 text-[13px]">
+          <Sparkles size={12} className="mb-0.5 mr-1 inline" aria-hidden /><b className="font-semibold">Why the AI suggested it: </b>
+          {p.ai_reason}
+        </p>
+      )}
       <ul className="t-small grid gap-0.5">
         <li className="flex items-start gap-1.5"><MapPin size={13} className="mt-0.5 shrink-0" aria-hidden />
           {near ? <span>{near.km} km from {from} · ~{hm(near.minutes)} by {RIDE[near.mode]}
@@ -106,8 +114,9 @@ function available(sel: Selection, window?: [number, number]): number {
   return span(Math.max(ds, start), de) + span(ds, Math.min(de, end)) + (sel.days - 2) * span(ds, de);
 }
 
-export function SelectView({ threadId, question, sel, busy, onConfirm }: {
+export function SelectView({ threadId, question, sel, busy, onConfirm, trace }: {
   threadId: string; question: Question; sel: Selection; busy: boolean; onConfirm: (a: SelectionAnswer) => void;
+  trace: TraceStep[];
 }) {
   const [marks, setMarks] = useState<Record<string, Mark>>(question.defaults ?? {});
   const [stayId, setStayId] = useState(sel.stay_id);
@@ -285,10 +294,11 @@ export function SelectView({ threadId, question, sel, busy, onConfirm }: {
               onClick={() => onConfirm({ places: marks, stay: stayId, transport: transportId })}>
               <Sparkles size={18} aria-hidden />Generate final itinerary
             </Button>
-            {picked.length === 0 && sights.length > 0 && <p className="t-small mt-2">No places picked: we'll choose from all of them.</p>}
+            {picked.length === 0 && sights.length > 0 && <p className="t-small mt-2">No places picked: the days will be left free.</p>}
           </Card>
         </aside>
       </div>
+      <HoodCard steps={trace} />
     </div>
   );
 }

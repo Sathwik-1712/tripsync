@@ -1,8 +1,10 @@
 # TripSync
 
 A budget-first trip planner for India. You describe a trip ("4 days from Delhi to Jaipur in December, 2 of us,
-₹30k, love forts"), and a team of AI agents plans it day by day, checks every cost against your budget, and fixes
-its own mistakes before you see the plan.
+₹30k, love forts"), and a team of agents plans it day by day, checks every cost against your budget, and fixes
+its own mistakes before you see the plan. Facts (places, prices, distances, weather) come only from real services;
+an AI model reads your request, suggests places, gives the Critic a second opinion and explains the days, and code
+checks every AI answer before it's used. The **Under the hood** panel shows every step as it happens.
 
 Built with LangGraph, FastAPI and React, using only free APIs.
 
@@ -44,6 +46,13 @@ Built with LangGraph, FastAPI and React, using only free APIs.
   change the hotel, transport or places yourself (time on the road before → after, local fares, which places moved to
   which day, total cost), the plan shows the original, the replanned version and the reason. Nothing is listed unless
   it actually changed; where an agent replaced your stay or transport, one click switches back.
+- **Under the hood.** A live timeline of every agent step: what it was given, which real services it called (live,
+  reused from cache, estimated or failed, with timings), what it decided and why, every Critic send-back, and each
+  AI suggestion with whether the code accepted it. Shown while planning, on the choose screen and on the plan.
+- **AI proposes, code verifies.** The AI only ever chooses among real options it is shown, by number: which places to
+  suggest (with a reason on each card), which problem the Critic fixes first, whether a day is too much for your pace,
+  and a line on why each day's stops belong together. Anything else it says is thrown away; with no model, the rules
+  decide. All of it is in `agents/ai.py`.
 - **Its own travel database.** Every trip saves what it learns into `backend/.cache/tripsync.db`: places (with how
   often travellers pick or skip them), hotels and every price seen, fares by route and month, and road routes. Later
   trips reuse it: saved OpenStreetMap places when Overpass is down, saved routes instead of new OSRM calls, real
@@ -102,7 +111,7 @@ every data source has a fallback. Keys make it smarter and more accurate. All ar
 
 | Key in `backend/.env` | Get it from | What it adds |
 |---|---|---|
-| `GROQ_API_KEY` | console.groq.com | AI reads free-text requests, reviews the plan, writes the overview |
+| `GROQ_API_KEY` | console.groq.com | AI reads requests, suggests places, reviews the plan, explains the days |
 | `GOOGLE_API_KEY` | aistudio.google.com | Gemini, backup if Groq fails |
 | `LITEAPI_API_KEY` | dashboard.liteapi.travel (sandbox key, `sand_…`) | Real hotel names and rates (sandbox prices are test data) |
 | `SERPAPI_API_KEY` | serpapi.com (250 searches/month free) | Google Flights and Google Hotels as a second source |
@@ -127,13 +136,13 @@ Intake ─▶ Clarify ─▶ Budget ─┬▶ Transport ─────┐
 |---|---|---|---|
 | 1 | Intake + Clarify | Reads the request (rules first, AI fills gaps); asks for anything missing or unknown | `agents/intake.py` |
 | 2 | Budget | Splits the budget into hard limits, weighted by typical costs for that city and your priority | `agents/budget.py` |
-| 3 | Transport / Accommodation / Activity | Run in parallel; each picks options inside its own limit | `agents/transport.py`, `accommodation.py`, `activity.py` |
+| 3 | Transport / Accommodation / Activity | Run in parallel; each picks options inside its own limit. The AI suggests which real places suit you | `agents/transport.py`, `accommodation.py`, `activity.py`, `ai.py` |
 | 3d | You choose | Pauses with every place, stay and transport option; resumes with your marks and picks (asked once; Critic loops pass straight through) | `agents/review.py` |
 | 4 | Planner | Builds days by the clock from the places you kept (must-visit first, optional last): arrival, transfer, stops, meals, departure; directions and fares for every hop; respects opening hours | `agents/planner.py` |
-| 5 | Critic | Code checks plus a short AI review | `agents/critic.py` |
+| 5 | Critic | Code checks; the AI picks which problem to fix first (among the rule-allowed ones) and gives a second opinion that can send one too-full day back once | `agents/critic.py`, `ai.py` |
 | 6 | Router | Sends each problem to the agent that can fix it | `ROUTES` in `critic.py`, `graph.py` |
 | 7 | Retry cap | After 3 rounds: rebalance if the total fits, otherwise ask you | `ask_user_node` in `critic.py` |
-| 8 | Finalize | Final plan, warnings, overview | `agents/finalize.py` |
+| 8 | Finalize | Final plan, warnings, overview; the AI writes a line on why each day's stops are together (text only) | `agents/finalize.py` |
 | 9 | Refine | Turns a follow-up into a targeted change; reruns only what's affected | `agents/refine.py` |
 
 Trip state is saved per conversation in SQLite (LangGraph checkpointer), so refinements build on the last plan.
@@ -235,7 +244,7 @@ tripsync/
 From `backend/`:
 
 ```bash
-python3.12 -m pytest -q            # 52 tests, no network
+python3.12 -m pytest -q            # 62 tests, no network
 python3.12 eval.py --offline       # 16 test trips, bundled data only
 python3.12 eval.py                 # same trips with live data
 python3.12 cli.py                  # plan a trip in the terminal

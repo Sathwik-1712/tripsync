@@ -10,6 +10,7 @@ from ..tools.geo import city_info, geocode, haversine_km
 from ..tools.places import (destination_image, destination_summary, fallback_pois, fetch_pois,
                              wikivoyage_listings)
 from ..tools.weather import daily_weather
+from .ai import curate_places
 
 GENERIC = {"the", "of", "church", "temple", "museum", "fort", "beach", "palace", "and", "sri", "shri"}
 
@@ -106,6 +107,21 @@ def activity_node(state: dict) -> dict:
         pois = [p for p in pois if p["fee"] <= knobs["max_fee"]]
     pois = pois[:60]
     rainy = [w["date"] for w in weather if w.get("precip_mm", 0) >= 5 or (w.get("precip_prob") or 0) >= 60]
+    # Before the traveller has chosen, the AI suggests which of these real places suit them (with a reason each).
+    # After they've chosen, their picks decide and the AI isn't asked again.
+    confirmed = (state.get("selection") or {}).get("confirmed")
+    if confirmed:  # keep the reasons the AI gave the first time
+        prev = sorted((c for c in (state.get("activities") or {}).get("candidates", []) if c.get("ai_reason")),
+                      key=lambda c: c["ai_rank"])
+        picks = {c["id"]: c["ai_reason"] for c in prev}
+    else:
+        picks = curate_places(pois, req, weather, len(dates))
+    order = {pid: i for i, pid in enumerate(picks)}
+    for p in pois:
+        p.pop("ai_rank", None)
+        p.pop("ai_reason", None)
+        if p["id"] in picks:
+            p["ai_rank"], p["ai_reason"] = order[p["id"]], picks[p["id"]]
     return {
         "destination": {**loc, "city": city, "summary": destination_summary(city), "image": destination_image(city)},
         "weather": weather,
@@ -117,4 +133,11 @@ def activity_node(state: dict) -> dict:
                 f"{'; ' + str(len(food_spots)) + ' places to eat' if food_spots else ''}"
                 f"{'; rain likely on ' + ', '.join(rainy) if rainy else ''}"
                 f"{'; ' + '; '.join(notes) if notes else ''}"],
+        "explain": {"decided": f"{len(pois)} real places and {len(food_spots)} places to eat"
+                               + (f"; the AI suggested {len(picks)} of them" if picks and not confirmed else ""),
+                    "why": f"Places come only from {source}; ranked by how well-known they are, your interests and "
+                           "what earlier travellers picked. This list is the only set the Planner may use"
+                           + ("; " + "; ".join(notes) if notes else ""),
+                    "inputs": [f"{city}, {len(dates)} days", f"Interests: {', '.join(interests) or 'any'}",
+                               f"Rain likely: {', '.join(rainy) or 'no'}"]},
     }

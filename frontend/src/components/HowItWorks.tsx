@@ -2,7 +2,8 @@ const STEPS = [
   ["Budget first", "Your budget is split into limits for travel, stay, activities and food before anything is chosen."],
   ["Three agents search", "Transport, stays and places are found at the same time, each within its limit."],
   ["A critic checks", "Costs, rain and travel time are checked. Problems go back to the agent that can fix them."],
-  ["You fine-tune", "Ask for changes like a lighter day or a cheaper stay. Only the affected agents rerun."],
+  ["AI helps, code checks", "AI reads your request, suggests places, reviews the days and explains them. It only picks from real data, and code checks every answer."],
+  ["You fine-tune", "Ask for changes like a lighter day or a cheaper stay. Only the affected agents rerun. See every step under the hood."],
 ];
 
 export function HowItWorks() {

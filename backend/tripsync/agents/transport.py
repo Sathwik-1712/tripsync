@@ -31,6 +31,18 @@ def choose(opts: list[dict], limit: int, preferred: str | None) -> dict:
     return min(opts, key=lambda o: o["total"])
 
 
+def _why(choice: dict, chosen: dict | None, limit: int, preferred: str | None, n: int) -> str:
+    if chosen:
+        return "You picked this option yourself, so it is kept"
+    if choice["total"] <= limit:
+        return (f"The most convenient of the options within the ₹{limit:,} limit"
+                f"{f' for your preferred {preferred}' if preferred == choice['mode'] else ''}: fewest journey hours, "
+                "with a penalty for landing late on day 1 or leaving early on the last day")
+    if preferred == choice["mode"]:
+        return f"Your preferred {preferred} costs more than the limit; it was kept and the Critic will check the budget"
+    return f"None of the {n} options fits the ₹{limit:,} limit, so the cheapest was taken; the Critic checks the rest"
+
+
 def transport_node(state: dict) -> dict:
     from .review import transport_label
     req, limit = state["request"], state["allocations"]["transport"]
@@ -55,6 +67,7 @@ def transport_node(state: dict) -> dict:
     if knobs.get("chosen") and not chosen:
         reason = "The option you picked is no longer offered by the flight search"
         knobs.pop("chosen")
+        knobs.pop("locked", None)  # the replacement is ours, so budget fixes may change it again
     if not opts:
         choice = {"mode": "unknown", "label": "No route data", "price_pp": 0, "hours": 0, "total": 0, "source": "none",
                   "id": "none", "live": False}
@@ -70,4 +83,8 @@ def transport_node(state: dict) -> dict:
         "changes": changes,
         "log": [f"[Transport] {choice['label']} ({choice['mode']}), ₹{choice['total']:,} round trip "
                 f"vs limit ₹{limit:,}{note}"],
+        "explain": {"why": reason or _why(choice, chosen, limit, knobs.get("preferred_mode"), len(opts)),
+                    "inputs": [f"Transport limit ₹{limit:,}", f"{len(opts)} options found "
+                               f"({sum(1 for o in opts if o.get('live'))} live)",
+                               f"Preferred mode: {knobs.get('preferred_mode') or 'none'}"]},
     }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   ArrowRight, BedDouble, Bus, Calendar, Car, ChevronDown, CloudRain, Download, ExternalLink, Footprints, ListChecks,
-  LogOut, Map as MapIcon, MapPin, Navigation, Plane, Send, Sun, TrainFront, Users, UtensilsCrossed, Wallet,
+  LogOut, Map as MapIcon, Sparkles, MapPin, Navigation, Plane, Send, Sun, TrainFront, Users, UtensilsCrossed, Wallet,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -9,6 +9,7 @@ import {
   type PlanView as Plan, type Replan, type RouteLeg, type TripRequest,
 } from "../api";
 import { PRIORITY_LABEL } from "../priority";
+import { HoodCard } from "./UnderTheHood";
 import { capitalize, fmtDay, hhmm, inr, kindLabel, plural, weekday } from "../format";
 import { AgentMessage } from "./AgentMessage";
 import { StayOptions, TransportOptions } from "./Options";
@@ -172,6 +173,7 @@ function DayTimeline({ day, mode }: { day: Day; mode: string }) {
         <div>
           <p className="t-label">{fmtDay(day.date)}</p>
           <h2 className="t-h2">Day {day.day} · {day.title}</h2>
+          {day.why && <p className="t-small mt-1 max-w-prose"><Sparkles size={12} className="mb-0.5 mr-1 inline" aria-hidden />{day.why}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
           {w && <Chip icon={day.rainy ? CloudRain : Sun} className="bg-paper">{Math.round(w.tmin)}–{Math.round(w.tmax)}°C</Chip>}
@@ -438,20 +440,6 @@ function ChangeOptions({ plan, busy, onRefine }: { plan: Plan; busy: boolean; on
   );
 }
 
-function Details({ log }: { log: string[] }) {
-  return (
-    <details className="group rounded-nested border border-line bg-surface">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-sm font-medium">
-        <ChevronDown size={16} className="transition group-open:rotate-180" aria-hidden />Details
-      </summary>
-      <div className="px-5 pb-4">
-        <p className="t-small mb-2">Every agent decision, oldest first.</p>
-        <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-input bg-paper p-3 text-xs leading-5">{log.join("\n")}</pre>
-      </div>
-    </details>
-  );
-}
-
 function Refine({ busy, onSend }: { busy: boolean; onSend: (t: string) => void }) {
   const [text, setText] = useState("");
   return (
@@ -504,12 +492,15 @@ export function PlanView({ plan, threadId, busy, onRefine }: { plan: Plan; threa
           <WhatChanged changes={plan.changes} original={plan.original} plan={plan} busy={busy} onRefine={onRefine} />
           <ChangeOptions plan={plan} busy={busy} onRefine={onRefine} />
           {view === "Plan" && <About plan={plan} />}
+          <HoodCard steps={plan.trace ?? []} log={plan.log} />
         </div>
         <aside className="grid content-start gap-5">
           <Ticket plan={plan} />
           <Budget plan={plan} />
           <CriticNote replans={plan.replans} warnings={plan.warnings} />
-          <Details log={plan.log} />
+          {plan.tips?.map((t) => (
+            <Notice key={t}><b className="font-semibold">AI reviewer tip: </b>{t}</Notice>
+          ))}
           <a href={exportUrl(threadId)} download
             className="inline-flex h-14 items-center justify-center gap-2 rounded-full bg-lime text-base font-semibold text-ink transition hover:brightness-95">
             <Download size={18} aria-hidden />Export itinerary

@@ -5,6 +5,7 @@ import math
 import re
 from functools import lru_cache
 
+from .. import trace
 from ..config import DATA_DIR
 from ..http import get_json
 
@@ -91,32 +92,76 @@ def _estimate_minutes(a, b) -> float:
     return haversine_km(a, b) * 1.4 / 22 * 60
 
 
+def _osrm(points: list, sources: list[int], destinations: list[int]) -> dict:
+    """{(a, b): (km, minutes)} from one OSRM table call, saved for reuse. Pairs OSRM can't route (null,
+    e.g. no road to an island) are left out, so callers estimate them rather than read them as 0 km."""
+    from .. import db
+    coords = ";".join(f"{lon},{lat}" for lat, lon in points)
+    res = get_json(f"https://router.project-osrm.org/table/v1/driving/{coords}",
+                   {"annotations": "duration,distance", "sources": ";".join(map(str, sources)),
+                    "destinations": ";".join(map(str, destinations))}, timeout=20)
+    if res.get("code") != "Ok":
+        raise ValueError(res.get("code"))
+    out = {}
+    for i, si in enumerate(sources):
+        for j, dj in enumerate(destinations):
+            sec, metres = res["durations"][i][j], res["distances"][i][j]
+            if si != dj and sec is not None and metres is not None:
+                out[(points[si], points[dj])] = (metres / 1000, sec / 60)
+    db.save_routes([(a, b, km, minutes, "OSRM") for (a, b), (km, minutes) in out.items()])
+    return out
+
+
+def _estimate(a, b) -> tuple[float, float]:
+    return haversine_km(a, b) * 1.4, _estimate_minutes(a, b)
+
+
+def _cover(missing: list[tuple]) -> list:
+    """A few points that touch every missing pair (greedy), so only their rows and columns are fetched."""
+    left, out = set(missing), []
+    while left:
+        counts: dict = {}
+        for a, b in left:
+            counts[a] = counts.get(a, 0) + 1
+            counts[b] = counts.get(b, 0) + 1
+        best = max(counts, key=counts.get)
+        out.append(best)
+        left = {(a, b) for a, b in left if best not in (a, b)}
+    return out
+
+
 def travel_table(points: list[tuple[float, float]]) -> tuple[list[list[float]], list[list[float]], str]:
-    """Pairwise driving minutes and road kilometres. Saved routes first, then the OSRM public demo server
-    (results are saved); otherwise a straight-line estimate (x1.4 for road winding)."""
+    """Pairwise driving minutes and road kilometres. Saved routes first; only the missing ones come from the
+    OSRM public demo server (and are saved); anything still unknown is a straight-line estimate (x1.4)."""
     from .. import db
     if len(points) < 2:
         return [[0.0]], [[0.0]], "n/a"
     pairs = [(a, b) for a in points for b in points if a != b]
-    known = db.get_routes(pairs)
-    if len(known) == len(pairs):
-        km = [[0.0 if a == b else known[(a, b)][0] for b in points] for a in points]
-        minutes = [[0.0 if a == b else known[(a, b)][1] for b in points] for a in points]
-        return minutes, km, "OSRM"
-    try:
-        coords = ";".join(f"{lon},{lat}" for lat, lon in points)
-        res = get_json(f"https://router.project-osrm.org/table/v1/driving/{coords}",
-                       {"annotations": "duration,distance"}, timeout=15)
-        if res.get("code") == "Ok":
-            minutes = [[(d or 0) / 60 for d in row] for row in res["durations"]]
-            km = [[(d or 0) / 1000 for d in row] for row in res["distances"]]
-            db.save_routes([(a, b, km[i][j], minutes[i][j], "OSRM") for i, a in enumerate(points)
-                            for j, b in enumerate(points) if i != j])
-            return minutes, km, "OSRM"
-    except Exception as e:  # noqa: BLE001
-        log.info("OSRM failed: %s", e)
-    return ([[_estimate_minutes(a, b) for b in points] for a in points],
-            [[haversine_km(a, b) * 1.4 for b in points] for a in points], "estimate")
+    known = {k: v[:2] for k, v in db.get_routes(pairs).items()}
+    missing = [pq for pq in pairs if pq not in known]
+    if known:
+        trace.record("TripSync database", f"{len(known)} of {len(pairs)} road routes already saved", cached=True,
+                     kind="db")
+    if missing:
+        idx = {pt: i for i, pt in enumerate(points)}
+        new = sorted({idx[pt] for pt in _cover(missing)})
+        everyone = list(range(len(points)))
+        try:
+            if 2 * len(new) >= len(points):  # mostly new: one full table
+                known |= _osrm(points, everyone, everyone)
+            else:  # a few new points: just their rows and columns
+                known |= _osrm(points, new, everyone)
+                known |= _osrm(points, everyone, new)
+        except Exception as e:  # noqa: BLE001
+            log.info("OSRM failed: %s", e)
+    estimated = [pq for pq in pairs if pq not in known]
+    if estimated:
+        trace.record("Straight-line estimate", f"{len(estimated)} routes OSRM couldn't give (x1.4 road factor)",
+                     kind="estimate")
+    known |= {(a, b): _estimate(a, b) for a, b in estimated}
+    km = [[0.0 if a == b else known[(a, b)][0] for b in points] for a in points]
+    minutes = [[0.0 if a == b else known[(a, b)][1] for b in points] for a in points]
+    return minutes, km, "estimate" if estimated else "OSRM"
 
 
 def travel_matrix(points: list[tuple[float, float]]) -> tuple[list[list[float]], str]:
@@ -127,27 +172,21 @@ def travel_matrix(points: list[tuple[float, float]]) -> tuple[list[list[float]],
 
 def travel_from(origin: tuple[float, float], points: list[tuple[float, float]]) -> tuple[list[tuple], str]:
     """Road (km, minutes) from one point to each of many, e.g. a hotel to every candidate place. Saved routes
-    first, then one OSRM table call with the origin as the only source; straight-line estimate if that fails."""
+    first, then one OSRM table call with the origin as the only source; straight-line estimate otherwise."""
     from .. import db
     if not points:
         return [], "n/a"
-    known = db.get_routes([(origin, p) for p in points])
-    missing = [p for p in points if (origin, p) not in known]
-    source = "OSRM"
+    known = {k: v[:2] for k, v in db.get_routes([(origin, p) for p in points if p != origin]).items()}
+    missing = list(dict.fromkeys(p for p in points if p != origin and (origin, p) not in known))
+    if known:
+        trace.record("TripSync database", f"{len(known)} routes from this point already saved", cached=True,
+                     kind="db")
     if missing:
         try:
-            coords = ";".join(f"{lon},{lat}" for lat, lon in [origin] + missing)
-            res = get_json(f"https://router.project-osrm.org/table/v1/driving/{coords}",
-                           {"annotations": "duration,distance", "sources": "0"}, timeout=20)
-            if res.get("code") != "Ok":
-                raise ValueError(res.get("code"))
-            rows = [(origin, p, (res["distances"][0][i + 1] or 0) / 1000, (res["durations"][0][i + 1] or 0) / 60,
-                     "OSRM") for i, p in enumerate(missing)]
-            db.save_routes(rows)
-            known |= {(a, b): (km, minutes, src) for a, b, km, minutes, src in rows}
+            known |= _osrm([origin] + missing, [0], list(range(1, len(missing) + 1)))
         except Exception as e:  # noqa: BLE001
             log.info("OSRM failed: %s", e)
-            source = "estimate"
-            known |= {(origin, p): (haversine_km(origin, p) * 1.4, _estimate_minutes(origin, p), "estimate")
-                      for p in missing}
-    return [known[(origin, p)][:2] for p in points], source
+    estimated = [p for p in points if p != origin and (origin, p) not in known]
+    known |= {(origin, p): _estimate(origin, p) for p in estimated}
+    known[(origin, origin)] = (0.0, 0.0)
+    return [known[(origin, p)] for p in points], "estimate" if estimated else "OSRM"

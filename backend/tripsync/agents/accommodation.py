@@ -28,6 +28,7 @@ def accommodation_node(state: dict) -> dict:
     if knobs.get("chosen") and not chosen:
         reason = "The stay you picked no longer has rooms for these dates"
         knobs.pop("chosen")
+        knobs.pop("locked", None)  # the replacement is ours, so budget fixes may change it again
     in_tier = [o for o in opts if o["tier"] == knobs["tier"]]
     within = [o for o in in_tier if o["total"] <= limit]
     choice = chosen or (within[0] if within else min(in_tier or opts, key=lambda o: o["total"]))
@@ -41,4 +42,10 @@ def accommodation_node(state: dict) -> dict:
         "changes": changes,
         "log": [f"[Accommodation] {choice['name']} ({choice['tier']}), {choice['nights']} nights × "
                 f"{choice['rooms']} room(s) = ₹{choice['total']:,} vs limit ₹{limit:,}{note}"],
+        "explain": {"why": reason or ("You picked this stay yourself, so it is kept" if chosen else
+                                      f"The first {knobs['tier']} stay within the ₹{limit:,} limit" if within else
+                                      f"No {knobs['tier']} stay fits the ₹{limit:,} limit, so the cheapest was taken; "
+                                      "the Critic checks the budget"),
+                    "inputs": [f"Stay limit ₹{limit:,}", f"Tier: {knobs['tier']}",
+                               f"{len(opts)} stays found ({sum(1 for o in opts if not o.get('estimate'))} live)"]},
     }

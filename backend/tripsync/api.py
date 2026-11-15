@@ -105,17 +105,21 @@ def send_message(thread_id: str, msg: Message):
     answer = msg.text
     if asked and asked.get("type") == "select":  # never resume with a falsy value: LangGraph would ask again
         answer = {"accept": True, **(msg.selection or {})}
+    elif asked and not msg.text.strip():
+        raise HTTPException(422, "Please type an answer to the question.")
     payload = Command(resume=answer) if asked else {"user_message": msg.text}
 
     def events():
         live = {} if refining else {"intake": "Working"}
-        notes, notice = [], None
+        notes, notice, steps = [], None, []  # steps: this run's trace entries, shown live
         title = "Updating your plan" if refining else "Planning your trip"
         yield _sse("progress", {"statuses": live, "notes": notes, "title": title})
         try:
             for chunk in graph.stream(payload, cfg, stream_mode="updates"):
                 for node, upd in chunk.items():
                     upd = upd or {}
+                    if isinstance(upd, dict):
+                        steps += upd.get("trace") or []
                     if node in ("intake", "clarify"):
                         live["intake"], live["budget"] = "Done", "Working"
                     elif node == "refine":
@@ -138,7 +142,7 @@ def send_message(thread_id: str, msg: Message):
                         live[node] = "Done"
                         for nxt in NEXT[node]:
                             live[nxt] = "Working"
-                    yield _sse("progress", {"statuses": live, "notes": notes, "title": title})
+                    yield _sse("progress", {"statuses": live, "notes": notes, "title": title, "trace": steps})
         except Exception as e:  # noqa: BLE001 - surface to the UI instead of a broken stream
             yield _sse("error", {"message": f"Something went wrong while planning: {e}"})
             return

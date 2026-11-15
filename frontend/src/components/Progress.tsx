@@ -1,6 +1,7 @@
 import { CircleCheck, Circle, LoaderCircle } from "lucide-react";
 import type { Progress as P } from "../api";
 import { AgentPanel } from "./Sidebar";
+import { UnderTheHood } from "./UnderTheHood";
 
 const STEPS: [string, string][] = [
   ["intake", "Reading your request"], ["budget", "Checking budget"], ["transport", "Finding ways to get there"],
@@ -30,6 +31,8 @@ export function ProgressCard({ progress }: { progress: P }) {
         {progress.notes.map((n, i) => (
           <p key={i} className="ml-8 mt-1 text-sm text-warning animate-fade-in">{n}</p>
         ))}
+        <h3 className="t-label mb-3 mt-6">Under the hood, live</h3>
+        <UnderTheHood steps={progress.trace ?? []} live />
       </section>
       <div className="lg:hidden"><AgentPanel statuses={progress.statuses} /></div>
     </div>

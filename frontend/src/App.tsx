@@ -68,7 +68,7 @@ export default function App() {
             : view.status === "plan" ? <PlanView key={threadId} plan={view} threadId={threadId!} busy={busy} onRefine={send} />
             : view.status === "question" ? <QuestionCard question={view.question} busy={busy} onAnswer={send} />
             : view.status === "select" ? <SelectView key={threadId} threadId={threadId!} question={view.question} sel={view.selection} busy={busy}
-                onConfirm={(a) => send("", a)} />
+                onConfirm={(a) => send("", a)} trace={view.trace ?? []} />
             : <TripForm cities={meta.cities} interests={meta.interests} busy={busy} onSubmit={send} />}
         </main>
       </div>

@@ -3,6 +3,7 @@ from langchain_core.runnables import RunnableConfig
 
 from .. import db, llm
 from ..state import change
+from .ai import day_notes
 from .critic import describe
 
 MARK_LABEL = {"must": "Must visit", "add": "Added", "optional": "Optional"}
@@ -108,10 +109,19 @@ def finalize_node(state: dict, config: RunnableConfig) -> dict:
         lines.append("Unresolved: " + "; ".join(warnings))
     intro = llm.text(
         "Write a two-sentence friendly overview of this trip. Mention only places listed; do not add any.\n"
-        + "\n".join(lines))
+        + "\n".join(lines), purpose="Write the trip overview")
+    notes = day_notes(state["itinerary"]["days"], s["name"])
+    days = [{**d, "why": notes.get(d["day"])} for d in state["itinerary"]["days"]]
     text = ((intro.strip() + "\n\n") if intro else "") + "\n".join(lines)
     changes = compare_with_baseline(state) + dropped_places(state)
     db.save_trip(config["configurable"]["thread_id"], {**state, "changes": (state.get("changes") or []) + changes})
-    return {"final": {"warnings": warnings, "text": text}, "reply": text, "next_agent": None,
+    tips = (state.get("constraints", {}).get("critic") or {}).get("tips") or []
+    return {"final": {"warnings": warnings, "text": text, "tips": tips}, "reply": text, "next_agent": None,
+            "itinerary": {**state["itinerary"], "days": days},
+            "explain": {"decided": f"Final plan: {len(days)} days, total ₹{costs['total']:,} of ₹{costs['budget']:,}"
+                                   + (f", {len(warnings)} warning(s)" if warnings else ""),
+                        "why": "Everything the agents found is put together; the AI writes the short overview and "
+                               "a line on how each day is grouped, from the real distances (text only)",
+                        "inputs": [f"{len(changes)} changes explained", f"Saved to the TripSync database"]},
             "changes": changes, "baseline": None,
             "log": ["[Final] itinerary ready" + (f" with {len(warnings)} warning(s)" if warnings else "")]}

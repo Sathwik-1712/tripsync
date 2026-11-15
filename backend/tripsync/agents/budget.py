@@ -116,13 +116,20 @@ def budget_node(state: dict) -> dict:
         note = [change("budget", f"{cat.title()} limit ₹{old:,}", f"₹{alloc[cat]:,}",
                        f"{cat.title()} cost ₹{action['deficit']:,} more than its share, so ₹{covered:,} was moved from "
                        "the buffer and categories with money left over, instead of downgrading anything")] if covered else []
-        return {"allocations": alloc, "budget_action": None, "log": [msg], "changes": note}
+        return {"allocations": alloc, "budget_action": None, "log": [msg], "changes": note,
+                "explain": {"why": f"The Critic found {cat} ₹{action['deficit']:,} over its limit while the plan as a "
+                                   "whole had room, so money was moved instead of downgrading anything",
+                            "inputs": [f"{cat.title()} limit ₹{old:,}", f"Short by ₹{action['deficit']:,}"]}}
     if action["type"] == "rebalance" and state.get("costs"):
         alloc = rebalance(req["budget_inr"], state["costs"])
         if alloc:
             return {"allocations": alloc, "budget_action": None,
                     "log": ["[Budget] rebalanced around the current plan: "
-                            + ", ".join(f"{k} ₹{v:,}" for k, v in alloc.items())]}
+                            + ", ".join(f"{k} ₹{v:,}" for k, v in alloc.items())],
+                    "explain": {"why": "Each category now gets what the current plan actually costs; up to the normal "
+                                       "buffer is kept back and anything left over is shared out",
+                                "inputs": [f"Budget ₹{req['budget_inr']:,}",
+                                           f"Plan costs ₹{sum(state['costs'][c] for c in CATEGORIES):,}"]}}
     alloc, typical, basis = initial_split(req)
     tier = req.get("stay_tier", "mid")
     if seen := db.hotel_price_stats(req["destination"], tier):
@@ -133,4 +140,8 @@ def budget_node(state: dict) -> dict:
     if tight:
         msg += f" (tight: typical mid-range total is ₹{sum(typical.values()):,})"
     return {"allocations": alloc, "budget_action": None, "log": [msg],
-            "constraints": {"budget": {"typical": typical, "basis": basis}}}
+            "constraints": {"budget": {"typical": typical, "basis": basis}},
+            "explain": {"decided": "Limits: " + ", ".join(f"{k} ₹{v:,}" for k, v in alloc.items()),
+                        "why": " ".join(basis),
+                        "inputs": [f"Budget ₹{req['budget_inr']:,}", f"{req['travellers']} traveller(s)",
+                                   f"{len(trip_dates(req))} days", f"Priority: {req.get('priority') or 'balanced'}"]}}

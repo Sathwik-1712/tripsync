@@ -44,6 +44,7 @@ class TripState(TypedDict, total=False):
     final: Optional[dict]
     reply: str
     log: Annotated[list, operator.add]
+    trace: Annotated[list, operator.add]  # one entry per agent step, for the "Under the hood" view
 
 
 class TripDraft(BaseModel):

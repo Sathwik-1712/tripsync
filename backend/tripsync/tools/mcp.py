@@ -6,6 +6,7 @@ import logging
 import requests
 
 from ..config import USER_AGENT, offline
+from .. import trace
 from ..http import OfflineError, session
 
 log = logging.getLogger(__name__)
@@ -36,6 +37,11 @@ def call_tool(url: str, name: str, arguments: dict, timeout: float = 45) -> dict
     """Initialise a session, call one tool and return its structured result (or parsed text content)."""
     if offline():
         raise OfflineError(url)
+    with trace.call(trace.service_name(url), f"tool {name}") as info:
+        return _call_tool(url, name, arguments, timeout, info)
+
+
+def _call_tool(url: str, name: str, arguments: dict, timeout: float, info: dict) -> dict:
     init = requests.post(url, headers=HEADERS, timeout=15, json={
         "jsonrpc": "2.0", "id": 1, "method": "initialize",
         "params": {"protocolVersion": PROTOCOL, "capabilities": {},
@@ -50,6 +56,7 @@ def call_tool(url: str, name: str, arguments: dict, timeout: float = 45) -> dict
     # Tool calls go through the disk cache so repeated searches don't hit the server.
     resp = session().post(url, headers=headers, timeout=timeout, json={
         "jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": name, "arguments": arguments}})
+    info["cached"] = bool(getattr(resp, "from_cache", False))
     resp.raise_for_status()
     result = _rpc_result(resp, 2)
     if result.get("isError"):
