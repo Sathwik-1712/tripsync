@@ -8,7 +8,7 @@ Everything is free. Versions are what is installed in this repo as of 27 Oct 202
 |---|---|---|
 | UI framework | **React 19** + **TypeScript** | Component model fits the design system (cards, chips, ticket, timeline) |
 | Build / dev server | **Vite 8** | Fast dev server; proxies `/api` to the backend |
-| Styling | **Tailwind CSS 4** (`@tailwindcss/vite`) | Design tokens from `design.md` live in `src/index.css` under `@theme` (`bg-paper`, `bg-lime`, `rounded-card`, …) |
+| Styling | **Tailwind CSS 4** (`@tailwindcss/vite`) | Design tokens from [design.md](design.md) live in `src/index.css` under `@theme` (`bg-paper`, `bg-lime`, `rounded-card`, …) |
 | Font | **Outfit** (Google Fonts) | Specified in `design.md`; tabular numbers for prices |
 | Icons | **lucide-react** | Outline, 2px stroke, as `design.md` requires (no emoji) |
 | Map | **Leaflet** + **react-leaflet 5**, OpenStreetMap tiles | Day-coloured pins and routes; free, no key |

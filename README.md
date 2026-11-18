@@ -119,7 +119,7 @@ every data source has a fallback. Keys make it smarter and more accurate. All ar
 | `TRIPSYNC_USER_AGENT` | your email | OpenStreetMap services require a contact; the placeholder is rejected |
 
 Models used: Groq `openai/gpt-oss-120b`, Gemini `gemini-flash-lite-latest`, optional local Ollama `llama3.1:8b`.
-Change them with `GROQ_MODEL`, `GEMINI_MODEL`, `OLLAMA_MODEL`.
+These are built in; to use others, add `GROQ_MODEL`, `GEMINI_MODEL` or `OLLAMA_MODEL` to `backend/.env`.
 
 ## How it works
 
@@ -204,16 +204,23 @@ All prices are shown as estimates. TripSync never books anything.
 ```
 tripsync/
 ├── README.md
-├── techstack.md            stack and versions
-├── design.md               visual design system
+├── docs/
+│   ├── PROJECT_SUMMARY.md  full project summary (for reports)
+│   ├── walkthrough.md      plain-English walkthrough of one real trip, viva Q&A
+│   ├── pitch.md            what makes it different
+│   ├── techstack.md        stack and versions
+│   └── design.md           visual design system
 ├── backend/
 │   ├── tripsync/
 │   │   ├── api.py          FastAPI app; streams agent progress (Server-Sent Events)
 │   │   ├── graph.py        LangGraph wiring
 │   │   ├── state.py        trip state and validation
 │   │   ├── llm.py          Groq → Gemini → Ollama chain
+│   │   ├── trace.py        "Under the hood" record of every agent step
+│   │   ├── db.py           TripSync's own SQLite travel database
 │   │   ├── view.py         state → what the UI shows; Markdown export
-│   │   ├── agents/         intake, budget, transport, accommodation, activity, planner, critic, refine, finalize
+│   │   ├── agents/         intake, budget, transport, accommodation, activity, review, planner, critic,
+│   │   │                   refine, finalize; ai.py holds every AI decision and its checks
 │   │   └── tools/          geo, weather, places, hours, transport, stays, mcp, currency
 │   ├── data/               cities.csv, sights.csv, transport_routes.csv
 │   ├── tests/              pytest suite (offline, deterministic)
@@ -224,7 +231,7 @@ tripsync/
 └── frontend/
     ├── src/App.tsx         screens: form → progress → question → plan
     ├── src/api.ts          API client and stream reader
-    └── src/components/     PlanView, TripForm, TripMap, Progress, Sidebar, …
+    └── src/components/     PlanView, SelectView, UnderTheHood, TripForm, TripMap, Progress, …
 ```
 
 ## API

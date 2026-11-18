@@ -230,7 +230,7 @@ trip that fits your budget, from data it can verify, around choices you made, an
 | Weather | Open-Meteo forecast → last year's weather for the same dates |
 | Geocoding | City table → Nominatim |
 | Destination info | Wikivoyage text, Wikimedia Commons photo |
-| Quality | pytest (52 offline tests), 16-trip evaluation harness, optional LangSmith tracing |
+| Quality | pytest (62 offline tests), 16-trip evaluation harness, optional LangSmith tracing |
 
 ---
 
@@ -248,7 +248,7 @@ monsoon south, big group):
 | Average stops per day | **3.1** |
 | Average replanning rounds | 2.25 |
 | Average time per trip | ~18 s |
-| Automated tests | **52 passing**, offline and deterministic |
+| Automated tests | **62 passing**, offline and deterministic |
 
 ---
 
